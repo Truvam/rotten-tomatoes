@@ -2,10 +2,16 @@ from sklearn.metrics.pairwise import cosine_similarity
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori
 from mlxtend.frequent_patterns import association_rules
+from rake_nltk import Rake
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 from scipy import sparse
 import pandas as pd
 import numpy as np
 import surprise
+import re
 
 
 class Binary:
@@ -168,3 +174,136 @@ class NonBinary:
             print('movie_id: {0} with predicted rating: {1}'.format(movie_id,
                                                                     pred_ratings[
                                                                         i]))
+
+
+class ContextAware:
+    def __init__(self, movie_info, reviews_rs):
+        self.reviews_rs = reviews_rs
+        # Using Rake to extract the most relevant words from synopsis
+        ca_df = movie_info.copy()
+
+        # Removing movies with no synopsis
+        ca_df = ca_df.loc[~ca_df['synopsis'].isnull()]
+
+        # Removing movies with no genre
+        ca_df = ca_df.loc[~ca_df['genre'].isnull()]
+
+        # Removing movies with no director
+        ca_df = ca_df.loc[~ca_df['director'].isnull()]
+
+        # Create new column with the key words from synopsis for each movie
+        ca_df['key_words'] = ""
+
+        ca_df['key_words'] = ca_df['synopsis'].apply(generate_key_words)
+
+        ca_df.drop(
+            columns=['synopsis', 'rating', 'writer', 'theater_date', 'dvd_date',
+                     'currency',
+                     'box_office', 'runtime', 'studio'], inplace=True)
+
+        ca_df['genre'] = ca_df['genre'].apply(split_genre)
+        ca_df['director'] = ca_df['director'].apply(remove_space_director)
+
+        self.ca_df = ca_df
+
+    def merge_columns(self):
+        # Merge all columns into one containing all words
+        self.ca_df['all_words'] = self.ca_df[['genre', 'director',
+                                              'key_words']].apply(
+            lambda x: ' '.join(x), axis=1)
+
+        self.ca_df.drop(columns=['genre', 'director', 'key_words'],
+                        inplace=True)
+
+        # Changing index to movie id
+        self.ca_df = self.ca_df.set_index('id')
+
+    def create_similarity_matrix(self):
+        # instantiating and generating the count matrix
+        count = CountVectorizer()
+        count_matrix = count.fit_transform(self.ca_df['all_words'])
+
+        # generating the cosine similarity matrix
+        cosine_sim = cosine_similarity(count_matrix, count_matrix)
+
+        """
+        all the numbers on the diagonal are 1 because, of course, every movie is 
+        identical to itself. 
+        The matrix is also symmetrical because the similarity between A and B is 
+        the same as the similarity between B and A.
+        """
+        return cosine_sim
+
+    def get_recommendations(self, movie_id, cosine_sim, top_n=5):
+        recommended_movies = []
+
+        # creating a Series for the movie titles so they are associated to an
+        # ordered numerical list I will use in the function to match the indexes
+        indices = pd.Series(self.ca_df.index)
+        # getting the index of the movie that matches the movie id
+        idx = indices[indices == movie_id].index[0]
+
+        # creating a Series with the similarity socres in descending order
+        score_series = pd.Series(cosine_sim[idx]).sort_values(ascending=False)
+
+        top_n_indexs = list(score_series.iloc[1:top_n + 1].index)
+
+        for i in top_n_indexs:
+            recommended_movies.append(self.ca_df.index[i])
+
+        return recommended_movies
+
+    def get_recommendation_user(self, critic_id, cosine_sim, top_n=5):
+        recommended_movies = []
+
+        df = self.reviews_rs.loc[self.reviews_rs['critic_uid'] == critic_id]
+
+        # Get top 5 rated movies by a specific critic
+        df = df.nlargest(5, ['rating'])
+
+        # Get movies id from top 5
+        movies_ids = list(df['id'])
+
+        for movie_id in movies_ids:
+            if movie_id in self.ca_df.index:
+                recommended_movies.append(self.get_recommendations(movie_id,
+                                                                   cosine_sim))
+
+        return sum(recommended_movies, [])[:top_n]
+
+
+def generate_key_words(synopsis):
+    # instantiating Rake, by default it uses english stopwords from NLTK
+    # and discards all puntuation characters as well
+    r = Rake()
+
+    # extracting the words by passing the text
+    r.extract_keywords_from_text(synopsis)
+
+    # getting the dictionary whith key words as keys and their scores as values
+    key_words_dict_scores = r.get_word_degrees()
+
+    # Removing stop words
+    stop_words = set(stopwords.words('english'))
+    words = ' '.join(list(key_words_dict_scores.keys()))
+
+    word_tokens = word_tokenize(words)
+    filtered_sentence = [w for w in word_tokens if not w in stop_words]
+
+    words = ' '.join(filtered_sentence)
+    result = re.sub(r'[^[a-zA-Z]]', "", words)
+
+    return result
+
+
+def split_genre(genre):
+    if "|" in genre:
+        return genre.replace("|", " ").lower()
+    return genre.lower()
+
+
+def remove_space_director(director):
+    director = director.replace(" ", "").lower()
+    if "|" in director:
+        return director.replace("|", " ")
+    return director
