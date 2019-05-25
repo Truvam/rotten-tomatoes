@@ -55,10 +55,7 @@ def create_rs_df(reviews):
     reviews_rs = reviews.copy()
     reviews_rs.insert(loc=0, column='critic_uid', value=new_column)
 
-    reviews_rs.drop('review', axis=1, inplace=True)
-    reviews_rs.drop('top_critic', axis=1, inplace=True)
-    reviews_rs.drop('publisher', axis=1, inplace=True)
-    reviews_rs.drop('date', axis=1, inplace=True)
-    reviews_rs.drop('fresh', axis=1, inplace=True)
-    reviews_rs.drop('critic', axis=1, inplace=True)
+    reviews_rs.drop(columns=['review', 'top_critic', 'publisher', 'date',
+                             'fresh', 'critic'], inplace=True)
+
     return reviews_rs, critics, critic_uid
