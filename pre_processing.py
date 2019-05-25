@@ -59,3 +59,13 @@ def create_rs_df(reviews):
                              'fresh', 'critic'], inplace=True)
 
     return reviews_rs, critics, critic_uid
+
+
+def creat_ratings_mean_count(reviews):
+    # Create DataFrame with average rating for each movie:
+    ratings_mean_count = pd.DataFrame(reviews.groupby('id')['rating'].mean())
+
+    # Add number of ratings per movie to DataFrame:
+    ratings_mean_count['rating_counts'] = pd.DataFrame(
+        reviews.groupby('id')['rating'].count())
+    return ratings_mean_count
