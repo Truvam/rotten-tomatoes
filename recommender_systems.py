@@ -27,8 +27,11 @@ class Binary:
 
     def binary_popularity_based(self, top_n=5):
         # Number of reviews for each movie
-        return self.reviews.groupby('id')['rating'].count().sort_values(
-            ascending=False).head(top_n)
+        recommended_movies = self.reviews.groupby('id')['rating'].count(
+        ).sort_values(ascending=False).head(top_n)
+        for i, (movie_id, nratings) in enumerate(recommended_movies.items()):
+            print("movie_id: {0} with number of rating: {1}".format(movie_id,
+                                                                    nratings))
 
     def ar_create_df(self):
         critics_id = self.reviews_rs['critic_uid'].unique().tolist()
@@ -132,14 +135,15 @@ class NonBinary:
 
     def nbinary_popularity_based(self, top_n=5):
         # Average rating for each movie in descending order:
-        return self.reviews.groupby('id')['rating'].mean().sort_values(
-            ascending=False).head(top_n)
+        recommended_movies = self.reviews.groupby('id')['rating'].mean(
+        ).sort_values(ascending=False).head(top_n)
+        for i, (movie_id, nratings) in enumerate(recommended_movies.items()):
+            print("movie_id: {0} with average rating: {1}".format(movie_id,
+                                                                  nratings))
 
     def nb_collaborative_filtering(self, critic_id, top_n=5):
         lower_rating = self.reviews_rs['rating'].min()
         upper_rating = self.reviews_rs['rating'].max()
-
-        print("Review range: {0} to {1}".format(lower_rating, upper_rating))
 
         reader = surprise.Reader(rating_scale=(0.0, 10.0))
         data = surprise.Dataset.load_from_df(self.reviews_rs, reader)
@@ -167,8 +171,9 @@ class NonBinary:
         i_max = np.argpartition(pred_ratings, -top_n)[-top_n:]
 
         # Use this to find the corresponding movie_id to recommend
-        print('Top movie for reviewer {0}: {1}'.format(critic_id,
-                                                       self.critics[critic_id]))
+        print('Top movies for reviewer {0}: {1}'.format(critic_id,
+                                                        self.critics[
+                                                            critic_id]))
         for i in i_max:
             movie_id = movies_ids_to_pred[i]
             print('movie_id: {0} with predicted rating: {1}'.format(movie_id,
@@ -177,8 +182,9 @@ class NonBinary:
 
 
 class ContextAware:
-    def __init__(self, movie_info, reviews_rs):
+    def __init__(self, movie_info, reviews_rs, critics):
         self.reviews_rs = reviews_rs
+        self.critics = critics
         # Using Rake to extract the most relevant words from synopsis
         ca_df = movie_info.copy()
 
@@ -234,7 +240,7 @@ class ContextAware:
         """
         return cosine_sim
 
-    def get_recommendations(self, movie_id, cosine_sim, top_n=5):
+    def get_recommendations(self, movie_id, cosine_sim, top_n=5, user=False):
         recommended_movies = []
 
         # creating a Series for the movie titles so they are associated to an
@@ -250,8 +256,12 @@ class ContextAware:
 
         for i in top_n_indexs:
             recommended_movies.append(self.ca_df.index[i])
-
-        return recommended_movies
+        if not user:
+            print("Top movies similar to movie_id: {0}".format(movie_id))
+            for movie_id in recommended_movies:
+                print("movie_id: {0}".format(movie_id))
+        else:
+            return recommended_movies
 
     def get_recommendation_user(self, critic_id, cosine_sim, top_n=5):
         recommended_movies = []
@@ -267,9 +277,14 @@ class ContextAware:
         for movie_id in movies_ids:
             if movie_id in self.ca_df.index:
                 recommended_movies.append(self.get_recommendations(movie_id,
-                                                                   cosine_sim))
+                                                                   cosine_sim,
+                                                                   user=True))
 
-        return sum(recommended_movies, [])[:top_n]
+        recommended_movies = sum(recommended_movies, [])[:top_n]
+        print("Top movies for reviewer {0}: {1}".format(
+            critic_id, self.critics[critic_id]))
+        for movie_id in recommended_movies:
+            print("movie_id: {0}".format(movie_id))
 
 
 def generate_key_words(synopsis):
