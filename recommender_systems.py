@@ -56,6 +56,25 @@ class Binary:
         return association_rules(frequent_itemsets, metric=metric,
                                  min_threshold=min_threshold)
 
+    def get_ar_recommendation(self, df, rules, critic_id, critics, top_n=5):
+        res = rules[['antecedents', 'consequents', 'support']]
+
+        movies_watched = df.loc[critic_id]
+        movies_watched = [k for k, v in movies_watched.items() if v]
+
+        recommended_movies = []
+        for movie_id in movies_watched:
+            cs = res.loc[res['antecedents'] == {movie_id}, 'consequents']
+            cs = [list(x) for x in cs.values]
+            recommended_movies.append(cs)
+
+        recommended_movies = sum(recommended_movies, [])[:top_n]
+        print('Top movies for reviewer {0}: {1}'.format(critic_id, critics[
+            critic_id]))
+        for movie_id in recommended_movies:
+            if movie_id not in movies_watched:
+                print("movie_id: {0}".format(movie_id[0]))
+
     def normalize_dataset(self):
         dataset_norm = self.binary_dataset.copy()
         # normalize the data for all users.
