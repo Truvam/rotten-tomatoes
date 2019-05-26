@@ -5,14 +5,14 @@ sns.set_style('dark')
 
 def plot_pre_processing(reviews_bf, reviews):
     # Pie chart, where the slices will be ordered and plotted counter-clockwise:
-    labels = 'Before Pre-Proccessing', 'After Pre-Processing '
+    labels = 'Usable after Pre-Proccessing', 'Removed after Pre-Processing '
     sizes = [len(reviews_bf), len(reviews_bf) - len(reviews)]
 
     fig1, ax1 = plt.subplots()
     ax1.pie(sizes, labels=labels, autopct='%1.1f%%', shadow=False,
             startangle=90)
     ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-    plt.title("Before and after Pre-Processing ratings")
+    plt.title("After Pre-Processing ratings")
     plt.show()
 
 
