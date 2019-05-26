@@ -102,11 +102,10 @@ class Binary:
         # Build similarity matrix
         similarity_matrix = self.calculate_similarity(dataset_norm)
         predictions = similarity_matrix.loc[str(item)].nlargest(top_n + 1)
-
         print("Top " + str(
             top_n) + " movie recommendation based on movie_id = " + str(
             item) + ":")
-        for index, row in predictions.iteritems():
+        for index, row in predictions[1:].iteritems():
             print("movie_id: " + str(index) + " with similarity: " + str(
                 round(row, 3)))
         # print(similarity_matrix.loc[str(item)].nlargest(top_n+1))
