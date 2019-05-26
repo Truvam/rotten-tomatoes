@@ -160,7 +160,7 @@ class NonBinary:
             print("movie_id: {0} with average rating: {1}".format(movie_id,
                                                                   nratings))
 
-    def nb_collaborative_filtering(self, critic_id, top_n=5):
+    def nb_collaborative_filtering(self, critic, top_n=5):
         lower_rating = self.reviews_rs['rating'].min()
         upper_rating = self.reviews_rs['rating'].max()
 
@@ -174,6 +174,7 @@ class NonBinary:
         movies_id = self.reviews_rs['id'].unique()
 
         # Get a list of movies_id that reviewer 0 has rated
+        critic_id = self.critic_uid[critic]
         movies_id_critic = self.reviews_rs.loc[
             self.reviews_rs['critic_uid'] == critic_id, 'id']
 
@@ -201,9 +202,10 @@ class NonBinary:
 
 
 class ContextAware:
-    def __init__(self, movie_info, reviews_rs, critics):
+    def __init__(self, movie_info, reviews_rs, critics, critic_uid):
         self.reviews_rs = reviews_rs
         self.critics = critics
+        self.critic_uid = critic_uid
         # Using Rake to extract the most relevant words from synopsis
         ca_df = movie_info.copy()
 
@@ -282,9 +284,10 @@ class ContextAware:
         else:
             return recommended_movies
 
-    def get_recommendation_user(self, critic_id, cosine_sim, top_n=5):
+    def get_recommendation_user(self, critic, cosine_sim, top_n=5):
         recommended_movies = []
 
+        critic_id = self.critic_uid[critic]
         df = self.reviews_rs.loc[self.reviews_rs['critic_uid'] == critic_id]
 
         # Get top 5 rated movies by a specific critic
